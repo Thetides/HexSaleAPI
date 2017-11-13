@@ -19,7 +19,10 @@ def get_summaries():
     return summaries
 
 def get_histories():
-    return requests.get(_url('/histories'))
+    response = requests.get(_url('/histories'))
+    data = response.content.decode("utf-8")
+    histories = json.loads(data)
+    return histories
 
 def get_pricelist():
     return requests.get(_url('/stats/pricelist'))
