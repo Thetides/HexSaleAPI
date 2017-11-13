@@ -38,7 +38,11 @@ def get_mostsold():
     return mostsold
 
 def post_search(article, limit=25,offset=0):
+    """Returns an array of information stored in a dict"""
     response = requests.post(_url('/articles/search'), json={"name":article,"limit":limit, "offset":offset})
+    data = response.content.decode("utf-8")
+    search_response = json.loads(data)
+    return search_response
 
 def get_articles_uuid(uuid):
     response = requests.get(_url('/articles/{}'.format(uuid)))
