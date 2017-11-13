@@ -31,7 +31,11 @@ def get_pricelist():
     return pricelist
 
 def get_mostsold():
-    return requests.get(_url('/stats/mostsold'))
+    """Will return a dict of 'gold' and 'platinum' most sold items from the auction house """
+    response = requests.get(_url('/stats/mostsold'))
+    data = response.content.decode("utf-8")
+    mostsold = json.loads(data)
+    return mostsold
 
 def post_search(article, limit=25,offset=0):
     response = requests.post(_url('/articles/search'), json={"name":article,"limit":limit, "offset":offset})
