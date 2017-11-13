@@ -41,7 +41,10 @@ def post_search(article, limit=25,offset=0):
     response = requests.post(_url('/articles/search'), json={"name":article,"limit":limit, "offset":offset})
 
 def get_articles_uuid(uuid):
-    return requests.get(_url('/articles/{}'.format(uuid)))
+    response = requests.get(_url('/articles/{}'.format(uuid)))
+    data = response.content.decode("utf-8")
+    article = json.loads(data)
+    return article
 
 def get_articles_histories(uuid):
     return requests.get(_url('/articles/{}/histories'.format(uuid)))
