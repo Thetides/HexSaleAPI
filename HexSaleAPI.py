@@ -53,7 +53,10 @@ def get_articles_histories(uuid):
     return article_history
 
 def get_articles_summaries(uuid):
-    return requests.get(_url('/articles/{}/summaries'.format(uuid)))
+    response = requests.get(_url('/articles/{}/summaries'.format(uuid)))
+    data = response.content.decode("utf-8")
+    article_summary = json.loads(data)
+    return article_summary
 
 def get_sets():
     return requests.get(_url('/sets'))
