@@ -63,6 +63,9 @@ def get_articles_summaries(uuid):
     return article_summary
 
 def get_sets():
-    return requests.get(_url('/sets'))
+    response = requests.get(_url('/sets'))
+    data = response.content.decode("utf-8")
+    hex_sets = json.loads(data)
+    return hex_sets
 
 #print(post_search('Runebind').content)
