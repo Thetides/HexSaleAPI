@@ -22,7 +22,10 @@ def get_histories():
     return requests.get(_url('/histories'))
 
 def get_pricelist():
-    return requests.get(_url('/stats/pricelist'))
+    response = requests.get(_url('/stats/pricelist'))
+    data = response.content.decode("utf-8")
+    pricelist = json.loads(data)
+    return pricelist
 
 def get_mostsold():
     return requests.get(_url('/stats/mostsold'))
