@@ -7,10 +7,16 @@ def _url(path):
     return 'https://api.hexsales.net/v1' + path
 
 def get_articles():
-    return requests.get(_url('/articles'))
+    response = requests.get(_url('/articles'))
+    data = response.content.decode("utf-8")
+    articles = json.loads(data)
+    return articles
 
 def get_summaries():
-    return requests.get(_url('/summaries'))
+    response = requests.get(_url('/summaries'))
+    data = response.content.decode("utf-8")
+    summaries = json.loads(data)
+    return summaries
 
 def get_histories():
     return requests.get(_url('/histories'))
@@ -21,8 +27,8 @@ def get_pricelist():
 def get_mostsold():
     return requests.get(_url('/stats/mostsold'))
 
-def post_search(article):
-    return requests.post(_url('/articles/search'), json={"name":article})
+def post_search(article, limit=25,offset=0):
+    response = requests.post(_url('/articles/search'), json={"name":article,"limit":limit, "offset":offset})
 
 def get_articles_uuid(uuid):
     return requests.get(_url('/articles/{}'.format(uuid)))
