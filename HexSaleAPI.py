@@ -9,10 +9,14 @@ def _url(path):
 def get_articles():
     response = requests.get(_url('/articles'))
     data = response.content.decode("utf-8")
-    return data
+    articles = json.loads(data)
+    return articles
 
 def get_summaries():
-    return requests.get(_url('/summaries'))
+    response = requests.get(_url('/summaries'))
+    data = response.content.decode("utf-8")
+    summaries = json.loads(data)
+    return summaries
 
 def get_histories():
     return requests.get(_url('/histories'))
