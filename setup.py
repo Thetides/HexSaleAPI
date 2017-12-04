@@ -6,7 +6,7 @@ setup(
     author='Luke Milby',
     author_email="luke.milby@gmail.com",
     license=,
-    packages=['requests'],
+    packages=['requests', 'validator.py'],
     long_description=open('README.md').read()
 
 )
