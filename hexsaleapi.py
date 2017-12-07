@@ -1,13 +1,57 @@
 import logging
 import datetime
-import json
 from urllib.parse import urlencode
 import requests
+from validator import Required, Not, Truthy, Blank, Range, Equals, In, validate, InstanceOf, Pattern, If, Then, Not
+
+todays_date = datetime.datetime.today().strftime('%Y-%m-%d')
 
 
-default_date = datetime.datetime.today().strftime('%Y-%m-%d')
+def paramsvalidator(payload):
+    rules = {
+    "name":[InstanceOf(str)],
+    "uuid":[If(InstanceOf(str),Then(Pattern("\w\w\w\w\w\w\w\w-\w\w\w\w-\w\w\w\w-\w\w\w\w-\w\w\w\w\w\w\w\w\w\w\w\w")))], # Example UUID = 8243c413-2575-461e-87e8-5f203c611223 
+    "rarity":[If(InstanceOf(str), Then(In(["Epic",
+                  "Legendary",
+                  "Rare",
+                  "Uncommon",
+                  "Common"
+                  ])))], 
+    "hex_type":[If(InstanceOf(str), Then(In(["Card","Equipment","Pack"])))], 
+    "hex_set":[If(InstanceOf(str), Then(In(["AI Only Cards",
+                   "Armies of Myth",
+                   "AZ1",
+                   "AZ2",
+                   "Dead of Winter",
+                   "Frostheart",
+                   "Frostheart Core Commons",
+                   "Herofall",
+                   "Primal Dawn",
+                   "PvE 01 Universal Card Set",
+                   "Scars of War",
+                   "Set01 Kickstarter",
+                   "Set01 PvE Arena",
+                   "Set01 PvE Holiday",
+                   "Set03 PvE Promo",
+                   "Set04 PvE Promo",
+                   "Set05 PvE Promo",
+                   "Set06 PvE Promo",
+                   "Set07 PvE Promo",
+                   "Set08 PvE Promo",
+                   "Shards of Fate",
+                   "Shattered Destiny"
+                   ])))], 
+    "limit":[If(InstanceOf(int), Then(InstanceOf(int)))], # teger - Limits the quantity of returned results (default: 25)
+    "offset":[If(InstanceOf(int), Then(InstanceOf(int)))], #Integer - Skips offset articles before returning (default: 0) 
+    "contains": [If(InstanceOf(str), Then(InstanceOf(bool)))], 
+    "currency":[If(InstanceOf(str), Then(In(["Gold", "Platinum"])))], # In Game currency
+    "start": [Pattern("\d\d\d\d-\d\d-\d\d")], # String - A valid date representation, such as "2016-01-01" (default: the date for the time of the request in CET timezone - 31 days)
+    "end":[Pattern("\d\d\d\d-\d\d-\d\d")] # String - same as above (default: the date of the time of the request in CET timezone)
+    }
 
-
+    results = validate(rules, payload)
+    return results.valid
+        
 
 def _url(path):
     """ API URL for hexsales.net
@@ -31,13 +75,13 @@ def get_articles():
     try:
         response = requests.get(_url('/articles'))
         logging.info(response)
-        data = response.content.decode("utf-8")
-        articles = json.loads(data)
+        data = response.json()
+        articles = data
         return articles
     except Exception:
         raise Exception("An error has occurred while getting article")
 
-def post_search(article, uuid, rarity, hex_type, hex_set, limit=25, offset=0, contains=False):
+def post_search(name, uuid=None, rarity=None, hex_type=None, hex_set=None, limit=25, offset=0, contains=False):
     """Let's you search for all articles with certain attribute values.
 
         Args:
@@ -54,22 +98,27 @@ def post_search(article, uuid, rarity, hex_type, hex_set, limit=25, offset=0, co
         Returns:
              An array of information stored in a dict
     """
-    try:
-        response = requests.post(_url('/articles/search'), json={"name":article, 
-                                                                 "uuid":uuid, 
-                                                                 "rarity":rarity, 
-                                                                 "type":hex_type,  
-                                                                 "limit":limit, 
-                                                                 "offset":offset, 
-                                                                 "contains":contains
-                                                                 }
-                                                                 )
-        logging.info(response)
-        data = response.content.decode("utf-8")
-        search_response = json.loads(data)
-        return search_response
-    except Exception:
-        raise Exception("An error has occurred while searching for {}".format(article))
+
+    payload = {"name":name, 
+               "uuid":uuid, 
+               "rarity":rarity, 
+               "type":hex_type,  
+               "limit":limit, 
+               "offset":offset, 
+               "contains":contains
+               }
+    logging.info(payload)
+    if paramsvalidator(payload):
+        try:
+            response = requests.post(_url('/articles/search'), json=payload)
+            logging.info(response)
+            data = response.json()
+            search_response = data
+            return search_response
+        except Exception:
+            raise Exception("An error has occurred while searching for {}".format(name))
+    else:
+        return "Error validating arguments"
 
 def get_articles_uuid(uuid):
     """ This function Gives you details for a specific article (currently it's name, game uuid, rarity,
@@ -82,34 +131,47 @@ def get_articles_uuid(uuid):
             Returns all data for the article with uuid. This is stored in a dict.
     
     """
-    try:
-        response = requests.get(_url('/articles/{}'.format(uuid)))
-        logging.info(response)
-        data = response.content.decode("utf-8")
-        article = json.loads(data)
-        return article
-    except Exception:
-        raise Exception("An error has occurred while looking up UUID:{}".format(uuid))
+    payload = {
+        "uuid":uuid
+        }
+    if paramsvalidator(payload):
+        try:
+            response = requests.get(_url('/articles/{}'.format(uuid)))
+            logging.info(response.status_code)
+            data = response.json()
+            article = data
+            return article
+        except Exception:
+            raise Exception("An error has occurred while looking up UUID:{}".format(uuid))
+    else:
+        return "Error validating arguments"
 
-def get_articles_histories(uuid):
+def get_articles_histories(uuid, start=todays_date, end=todays_date):
     """ Returns a JSON object with daily summary data for each currency for the article :uuid. 
     If the article :name does not exist, a 404 response is returned. 
     Note that all properties (average, median, etc are abbreviated, as opposed to the long form in summary data)
     
         Args:
-            uuid - String - The official game uuid of the searched article.
+            uuid - String - The official game uuid of the searched rtarticle.
         Returns:
             daily summary data for each currency  for articles uuid. This is stored in a dict.
     
     """
-    try:
-        response = requests.get(_url('/articles/{}/histories'.format(uuid)))
-        logging.info(response)
-        data = response.content.decode("utf-8")
-        article_history = json.loads(data)
-        return article_history
-    except Exception:
-        raise Exception("An error has occurred while getting history for UUID:{}".format(uuid))
+    payload = {
+        "uuid":uuid,
+        "start":start,
+        "end":end
+    }
+    if paramsvalidator(payload):
+        try:
+            response = requests.get(_url('/articles/{}/histories'.format(payload["uuid"])))
+            logging.info(response)
+            data = response.json()
+            return data
+        except Exception:
+            raise Exception("An error has occurred while getting history for UUID:{}".format(payload["uuid"]))
+    else:
+        return "Error validating arguments"
 
 def get_articles_summaries(uuid):
     """Contains a summarized sales for the specified article :uuid for a specified timespan for each currency.
@@ -119,18 +181,24 @@ def get_articles_summaries(uuid):
         Returns:
             Returns a JSON object containing summarizing sales for the specified article :uuid for a specified timespan for each currency. This is stored in a dict.
     """
-    try:
-        response = requests.get(_url('/articles/{}/summaries'.format(uuid)))
-        logging.info(response)
-        data = response.content.decode("utf-8")
-        article_summary = json.loads(data)
-        return article_summary
-    except Exception:
-       raise Exception("An error has occurred while getting articel summary for UUID:{}".format(uuid)) 
+    payload = {
+        "uuid":uuid
+    }
+
+    if paramsvalidator(payload):
+        try:
+            response = requests.get(_url('/articles/{}/summaries'.format(payload["uuid"])))
+            logging.info(response)
+            data = response.json()
+            return data
+        except Exception:
+            raise Exception("An error has occurred while getting articel summary for UUID:{}".format(payload["uuid"]))
+    else:
+        return "Error validating arguments"
 
 # Histories
 
-def get_histories(name, uuid, rarity, hex_type, hex_set, currency,start=default_date, end=default_date):
+def get_histories(name, uuid, rarity, hex_type, hex_set, currency,start=todays_date, end=todays_date):
     """Allows you to find historical data for more than one article. 
         Args:
             start - String - Starting date of the timespan you want a history for (default: NOW() - 3 months)
@@ -154,15 +222,16 @@ def get_histories(name, uuid, rarity, hex_type, hex_set, currency,start=default_
                "set":hex_set,
                "currency":currency  
               }
-    try:
-        response = requests.get(_url('/histories'+ urlencode(payload)))
-        logging.info(response)
-        data = response.content.decode("utf-8")
-        histories = json.loads(data)
-        return histories
-    except Exception:
-        raise Exception("An error has occurred while getting history")
-
+    if paramsvalidator(payload):
+        try:
+            response = requests.get(_url('/histories'+ urlencode(payload)))
+            logging.info(response)
+            data = response.json()
+            return data
+        except Exception:
+            raise Exception("An error has occurred while getting history")
+    else:
+        return "Error validating arguments"
 # Sets
 
 def get_sets():
@@ -174,16 +243,15 @@ def get_sets():
     try:
         response = requests.get(_url('/sets'))
         logging.info(response)
-        data = response.content.decode("utf-8")
-        hex_sets = data
-        return hex_sets
+        data = response.json()
+        return data
     except Exception:
         raise Exception("An error has occurred while getting sets")
 
 # Stats
 
-def get_mostsold(start=default_date, 
-                 end=default_date, 
+def get_mostsold(start=todays_date, 
+                 end=todays_date, 
                  limit=30):
     """Will return a dict of 'gold' and 'platinum' most sold items from the auction house 
 
@@ -200,14 +268,16 @@ def get_mostsold(start=default_date,
         "end":end,
         "limit":limit
     }
-    try:
-        response = requests.get(_url('/stats/mostsold' + urlencode(payload)))
-        logging.info(response)
-        data = response.content.decode("utf-8")
-        mostsold = json.loads(data)
-        return mostsold
-    except Exception:
-        raise Exception("An error has occurred while getting most sold")
+    if paramsvalidator(payload):
+        try:
+            response = requests.get(_url('/stats/mostsold' + urlencode(payload)))
+            logging.info(response)
+            data = response.json()
+            return data
+        except Exception:
+            raise Exception("An error has occurred while getting most sold")
+    else:
+        return "Error validating arguments"
 
 
 def get_pricelist():
@@ -221,15 +291,14 @@ def get_pricelist():
     try:
         response = requests.get(_url('/stats/pricelist'))
         logging.info(response)
-        data = response.content.decode("utf-8")
-        pricelist = json.loads(data)
-        return pricelist
+        data = response.json()
+        return data
     except Exception:
         raise  Exception("An error has occurred while getting a price list")
 
 # Summaries
 
-def get_summaries(name, uuid, rarity, hex_type, hex_set, currency, start=default_date, end=default_date):
+def get_summaries(name, uuid=None, rarity=None, hex_type=None, hex_set=None, currency=None, start=todays_date, end=todays_date):
     """ Lets you find summarizing data for more than one article.
 
         Args:
@@ -254,11 +323,14 @@ def get_summaries(name, uuid, rarity, hex_type, hex_set, currency, start=default
         "set":hex_set,
         "currency":currency
     }
-    try:
-        response = requests.get(_url('/summaries?' + urlencode(payload)))
-        logging.info(response)
-        data = response.content.decode("utf-8")
-        summaries = json.loads(data)
-        return summaries
-    except Exception:
-        raise Exception("An error has occurred while getting summaries.")
+
+    if paramsvalidator(payload):
+        try:
+            response = requests.get(_url('/summaries'), params=payload)
+            data = response.json()
+            return data
+        except Exception:
+            logging.info(Exception)
+            raise Exception("An error has occurred while getting summaries.")
+    else:
+         return "Error validating arguments"
